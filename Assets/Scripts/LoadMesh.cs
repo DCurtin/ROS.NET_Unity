@@ -12,6 +12,9 @@ public class LoadMesh : ROSMonoBehavior {
     public string RobotDescriptionParam = "/robot_description";
     private string robotdescription;
     private Dictionary<string, Color?> materials = new Dictionary<string, Color?>();
+    private Bounds bound;
+    BoxCollider collider;
+    private bool colliderBuilt = false;
     public XDocument RobotDescription { get; private set; }
     
     private TfVisualizer tfviz;
@@ -29,6 +32,7 @@ public class LoadMesh : ROSMonoBehavior {
             nh = new NodeHandle();
             Load();
         });
+        
     }
 	
     //Written by Eric M.
@@ -72,13 +76,13 @@ public class LoadMesh : ROSMonoBehavior {
             return false;
         }
         elements = RobotDescription.Root.Elements();
-       
+
         //written by Dalton C.
         //grab joints and links
         foreach (XElement element in elements)
         {
             if (element.Name == "material")
-                handleMaterial(element); 
+                handleMaterial(element);
 
             if (element.Name == "link")
                 handleLink(element);
@@ -89,8 +93,7 @@ public class LoadMesh : ROSMonoBehavior {
                 if (link != null)
                     handleLink(link);
             }
-        }
-        
+        }        
         return true;
     }
     
@@ -219,20 +222,21 @@ public class LoadMesh : ROSMonoBehavior {
 
                         COLLADA foundDae = null;
                         string dataPath = Application.dataPath;
-
-                        if (path.EndsWith(".dae"))
+                        try
                         {
-                            foundDae = COLLADA.Load(dataPath + "/Resources/" + path);
-                            path = path.Substring(0, path.LastIndexOf("."));
-                        }
+                            if (path.EndsWith(".dae"))
+                            {
+                                foundDae = COLLADA.Load(dataPath + "/Resources/" + path);
+                                path = path.Substring(0, path.LastIndexOf("."));
+                            }
 
-                        if (path.EndsWith(".DAE"))
-                        {
-                            foundDae = COLLADA.Load(dataPath + "/Resources/" + path);
-                            path = path.Substring(0, path.LastIndexOf("."));
-                        }
+                            if (path.EndsWith(".DAE"))
+                            {
+                                foundDae = COLLADA.Load(dataPath + "/Resources/" + path);
+                                path = path.Substring(0, path.LastIndexOf("."));
+                            }
 
-                        try {
+                        
                             UnityEngine.Object foundMesh = Resources.Load(path) as GameObject;
 
                             //handle rotations based on what axis is up for the mesh, this should fix most problems but 
@@ -263,10 +267,8 @@ public class LoadMesh : ROSMonoBehavior {
                             if (foundMesh != null)
                             {
                                 GameObject go = Instantiate(foundMesh as GameObject);
-                                if (link.Attribute("name").Value == "pedestal")
-                                    Debug.Log("thin");
 
-
+ 
                                 //crunch this down into a simpler chunk of code to eliminate repetition 
                                 if (go.transform.childCount == 0)
                                 {
@@ -400,10 +402,37 @@ public class LoadMesh : ROSMonoBehavior {
             {
                 tf.transform.position = tff.position;
                 tf.transform.rotation = tff.rotation;
+                try {
+                    if (!colliderBuilt)
+                        if (bound.center == Vector3.zero && bound.extents == Vector3.zero)
+                        {
+                            collider = tf.GetComponent<BoxCollider>() == null ? tf.gameObject.AddComponent<BoxCollider>() : collider;
+                            bound = tf.GetComponentInChildren<Renderer>().bounds;
+                        }
+                        else
+                            bound.Encapsulate(tf.GetComponentInChildren<Renderer>().bounds);
+                }
+                catch
+                {
+                    Debug.Log("obj does not have a renderer");
+                }
 
             }
 
         }
+
+        if (!colliderBuilt)
+        {
+            if(bound.size.magnitude > 3 || bound.size.magnitude < 0.1)
+            {
+                bound = new Bounds();
+                return;
+            }
+            collider.center = Vector3.zero; //collider should be centered on base_link already
+            collider.size = bound.size;
+            colliderBuilt = true;
+        }
+        
 
     }
 

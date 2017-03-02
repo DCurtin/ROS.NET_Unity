@@ -28,21 +28,31 @@ public class OrbitRotator : MonoBehaviour
     public Component Pivot;
     public Component Mast;
 
-    private SixenseInput.Controller left
-    {
-        get
-        {
-            return SixenseInput.GetController(SixenseHands.LEFT);
-        }
-    }
+    private OVRInput.Controller RIGHT = OVRInput.Controller.RTouch;
+    private OVRInput.Controller LEFT = OVRInput.Controller.LTouch;
 
-    private SixenseInput.Controller right
+    private OVRInput.Axis2D AnalogStick = OVRInput.Axis2D.PrimaryThumbstick;
+
+    private OVRInput.Axis2D ROTATE = OVRInput.Axis2D.SecondaryThumbstick;
+
+    private OVRInput.Button ZOOM_IN = OVRInput.Button.One;
+    private OVRInput.Button ZOOM_OUT = OVRInput.Button.Two;
+
+    /*private OVRInput.Controller left
     {
         get
         {
-            return SixenseInput.GetController(SixenseHands.RIGHT);
+            return OVRInput.Controller.LTouch;
         }
     }
+    
+    private OVRInput.Controller right
+    {
+        get
+        {
+            return OVRInput.Controller.RTouch;
+        }
+    }*/
 
     private Camera cam {
         get
@@ -73,6 +83,7 @@ public class OrbitRotator : MonoBehaviour
     }
     private void Update()
     {
+        OVRInput.Update();
         if (ignoreEvents) return;
         HandlePivot();
         HandleZoom();
@@ -81,12 +92,12 @@ public class OrbitRotator : MonoBehaviour
 
     private void HandleZoom()
     {
-        Vector3 sixsenseZoom = Vector3.zero;
-        if (right != null)
-            sixsenseZoom = Vector3.forward * ((right.GetButton(SixenseButtons.FOUR) ? 1 : 0) + (right.GetButton(SixenseButtons.TWO) ? -1 : 0));
-
-        if (!sixsenseZoom.Equals(Vector3.zero))
-            Mast.transform.localPosition += sixsenseZoom * 0.125f;
+        Vector3 controllerZoom = Vector3.zero;
+        if ((OVRInput.GetConnectedControllers() & OVRInput.Controller.RTouch) != 0)
+            controllerZoom = Vector3.forward * ((OVRInput.Get(ZOOM_IN, RIGHT) ? 1 : 0) + (OVRInput.Get(ZOOM_OUT, RIGHT) ? -1 : 0));
+        //Debug.Log("Zoom: " + controllerZoom.ToString());
+        if (!controllerZoom.Equals(Vector3.zero))
+            Mast.transform.localPosition += controllerZoom * 0.0525f;
         //hot fix: This will prevent scroll-wheel from moving cam while not on screen
         //does not work when on a diff screen while using synergy
         if (Input.mousePosition.x < 0 || Input.mousePosition.x > Screen.width || Input.mousePosition.y < 0 || Input.mousePosition.y > Screen.height)
@@ -110,12 +121,12 @@ public class OrbitRotator : MonoBehaviour
 
     private void HandleTranslate()
     {
-        Vector3 sixsenseTrans = Vector3.zero;
-        if (right != null)
-            sixsenseTrans = Vector3.forward * right.JoystickY + Vector3.right * right.JoystickX;
+        Vector3 controllerTrans = Vector3.zero;
 
-        if (!sixsenseTrans.Equals(Vector3.zero))
-            transform.position += transform.TransformVector(sixsenseTrans * 0.125f);
+        controllerTrans = OVRInput.Get(AnalogStick, LEFT);
+        //Debug.Log("controller: " + controllerTrans.ToString());
+        if (!controllerTrans.Equals(Vector3.zero))
+            transform.position += transform.TransformVector(new Vector3(controllerTrans.x, 0, controllerTrans.y) * 0.125f);
 
         if (!CrossPlatformInputManager.GetButton("Fire3"))
         {
@@ -137,12 +148,12 @@ public class OrbitRotator : MonoBehaviour
 
     private void HandlePivot()
     {
-        Vector2 sixsensePivot = Vector2.zero;
-        if (left != null)
-            sixsensePivot = Vector2.right * left.JoystickX + Vector2.up * left.JoystickY;
+        Vector2 controllerPivot = Vector2.zero;
+        
+        controllerPivot = OVRInput.Get(AnalogStick, RIGHT);
 
-        Debug.Log("Pivot: " + sixsensePivot.x);
-        if (!CrossPlatformInputManager.GetButton("Fire1") && (sixsensePivot.Equals(Vector2.zero) || sixsensePivot.magnitude < .7 ))
+        //Debug.Log("Pivot: " + controllerPivot.x);
+        if (!CrossPlatformInputManager.GetButton("Fire1") && (controllerPivot.Equals(Vector2.zero) || controllerPivot.magnitude < .7 ))
         {
             return;
         }
@@ -151,8 +162,8 @@ public class OrbitRotator : MonoBehaviour
         Pivot.transform.localRotation = m_OriginalRotation;
 
         // read input from mouse or mobile controls
-        float inputH = sixsensePivot.x;
-        float inputV = sixsensePivot.y;
+        float inputH = -controllerPivot.x;
+        float inputV = controllerPivot.y;
         if (relative)
         {
             inputH = CrossPlatformInputManager.GetAxis("Mouse X");
@@ -220,7 +231,7 @@ public class OrbitRotator : MonoBehaviour
         m_FollowAngles = Vector3.SmoothDamp(m_FollowAngles, m_TargetAngles, ref m_FollowVelocity, dampingTime);
 
         // update the actual gameobject's rotation
-        Pivot.transform.localRotation = m_OriginalRotation * Quaternion.Euler(-m_FollowAngles.x, 0, 0);
+        Pivot.transform.localRotation = m_OriginalRotation * Quaternion.Euler(m_FollowAngles.x, 0, 0);
         transform.localRotation = m_OriginalOrbitRotation * Quaternion.Euler(0,m_FollowAngles.y,0);
     }
 }
