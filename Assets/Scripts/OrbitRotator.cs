@@ -153,7 +153,7 @@ public class OrbitRotator : MonoBehaviour
         controllerPivot = OVRInput.Get(AnalogStick, RIGHT);
 
         //Debug.Log("Pivot: " + controllerPivot.x);
-        if (!CrossPlatformInputManager.GetButton("Fire1") && (controllerPivot.Equals(Vector2.zero) || controllerPivot.magnitude < .7 ))
+        if (!CrossPlatformInputManager.GetButton("Fire1") && controllerPivot.Equals(Vector2.zero))// || controllerPivot.magnitude < .7 ))
         {
             return;
         }

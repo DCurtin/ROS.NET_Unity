@@ -7,6 +7,13 @@ using System;
 using System.IO;
 using Collada141;
 
+
+
+/*
+    Requires the description to be in a foulder called Resources, the Resources foulder should be in the Assets directory.
+    Provide the rosparam of the description in load_meshe's inspector. It is a public var. This param will be read and meshes will be loaded in and named based on the urdf.
+    the namespace may also be necessary.
+*/
 public class LoadMesh : ROSMonoBehavior {
 
     public string RobotDescriptionParam = "/robot_description";
@@ -78,17 +85,18 @@ public class LoadMesh : ROSMonoBehavior {
         elements = RobotDescription.Root.Elements();
 
         //written by Dalton C.
-        //grab joints and links
+        //grab materials and links
         foreach (XElement element in elements)
         {
             if (element.Name == "material")
                 handleMaterial(element);
-
+            //handleLink will add a game object that is either a shape (cylinder,square,...) or a mesh. 
+            //meshes must be loaded into a 
             if (element.Name == "link")
                 handleLink(element);
 
             if (element.Name == "gazebo")
-            {
+            {//get nested link inside gazebo
                 XElement link = element.Element("link");
                 if (link != null)
                     handleLink(link);
@@ -137,22 +145,10 @@ public class LoadMesh : ROSMonoBehavior {
         }
         return colorOut;
     }
-    
-    //curently not using joints
-    bool handleJoint(XElement joint)
-    {
-        XElement origin = joint.Element("origin");
-        XElement parent = joint.Element("parent");
-        XElement child = joint.Element("child");
-        string strOrigin = origin == null ? null : origin.Attribute("xyz") == null ? null : origin.Attribute("xyz").Value;
-        return true;
-    }
 
     bool handleLink(XElement link)
     {
-        if (link.Attribute("name").Value == "left_gripper")
-            Debug.Log("thing");
-
+       
         XElement visual;
         //get pose outside of visual for gazebo
         XElement pose = link.Element("pose");
@@ -162,7 +158,7 @@ public class LoadMesh : ROSMonoBehavior {
             XElement geometry = visual.Element("geometry");
             XElement material = visual.Element("material");
             string xyz = origin == null ? pose == null ? null : pose.Value : origin.Attribute("xyz").Value;
-            //string materialName = material == null ? null : material.Attribute("name") == null ? null : material.Attribute("name").Value;
+            string materialName = material == null ? null : material.Attribute("name") == null ? null : material.Attribute("name").Value;
 
 
             //make a function that can return an array of floats given an element value
@@ -198,7 +194,7 @@ public class LoadMesh : ROSMonoBehavior {
                 }
             }
             Vector3 xyz_v = xyz_pos == null ? Vector3.zero :  new Vector3(-xyz_pos[1], xyz_pos[2], xyz_pos[0]);
-            //hackey shit
+            //hackey 
 
 
             Color ? color = null;
@@ -213,6 +209,10 @@ public class LoadMesh : ROSMonoBehavior {
                 XElement mesh;
                 if ((mesh = geometry.Element("mesh")) != null)
                 {
+                    //get path from from filename or uri
+                    //this path based on a root that contains all meshes. The structure is defined inside the robot_description 
+                    //usually straight up coppying the mesh directory into a Resources folder in your project directory.
+                    // Assets => Resources => baxter_description, where baxter_description contains all the meshes. The urdf is read from rosparam so you do not need a local copy
                     string path = mesh.Attribute("filename") == null ? mesh.Element("uri") == null ? null : mesh.Element("uri").Value : mesh.Attribute("filename").Value;
 
                     if (path != null)
@@ -281,9 +281,9 @@ public class LoadMesh : ROSMonoBehavior {
                                     goParent.name = link.Attribute("name").Value;
                                     go.transform.parent = goParent.transform;
 
-                                    //this sucks, 
+                                    
                                     // in some cases the urdf is declaring a mesh but not all the meshes that the dae needs
-                                   // if (go.GetComponent<MeshRenderer>() != null && color != null)
+                                    // if (go.GetComponent<MeshRenderer>() != null && color != null)
                                     //    go.GetComponent<MeshRenderer>().material.color = color.Value;
                                 }
                                 else
@@ -299,8 +299,8 @@ public class LoadMesh : ROSMonoBehavior {
                                         tf.transform.localPosition += xyz_v;
                                         tf.transform.localRotation = Quaternion.Euler(tf.transform.localEulerAngles + go.transform.localEulerAngles + rpy_v);
 
-                                        //this sucks, 
-                                        // in some cases the urdf is declaring a mesh but not all the meshes that the dae needs
+                                       
+                                        // will probably move moving materials into go's in load since not all materials may be loaded
                                        // if (tf.GetComponent<MeshRenderer>() != null && color != null)
                                          //   tf.GetComponent<MeshRenderer>().material.color = color.Value;
                                     }
@@ -343,7 +343,6 @@ public class LoadMesh : ROSMonoBehavior {
                         
                         if (go.GetComponent<MeshRenderer>() != null && color != null)
                             go.GetComponent<MeshRenderer>().material.color = color.Value;
-                        //links.Add(go.name, new link(go, xyz));
 
                     }
 
@@ -372,7 +371,6 @@ public class LoadMesh : ROSMonoBehavior {
 
                         if (go.GetComponent<MeshRenderer>() != null && color != null)
                             go.GetComponent<MeshRenderer>().material.color = color.Value;
-                        //links.Add(go.name, new link(go, xyz));
                     }
 
                 }
